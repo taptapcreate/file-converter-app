@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+// Using legacy FileSystem API to avoid deprecated readAsStringAsync warnings
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+// Note: react-native-blob-util is a native module and may break Expo managed apps if not prebuilt. We avoid using it to keep compatibility.
 import { PDFDocument } from 'pdf-lib';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { reportError } from '../utils/LogCollector';
 import { usePro } from '../context/ProContext';
 import { Colors, GlassStyles } from '../constants/colors';
 import { FREE_LIMITS } from '../constants/limits';
@@ -85,10 +88,29 @@ export const ImageToPdfScreen = () => {
             const pdfDoc = await PDFDocument.create();
 
             for (const imageUri of images) {
-                // Read image as base64
-                const base64 = await FileSystem.readAsStringAsync(imageUri, {
-                    encoding: 'base64',
-                });
+                // Read image as base64. Use FileSystem when possible and fall back to fetch->arrayBuffer.
+                // Avoid native modules so Expo-managed apps don't crash on startup.
+                let base64;
+                try {
+                    if (imageUri.startsWith('file://')) {
+                        // Local file URI - expo FileSystem can read this
+                        base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
+                    } else {
+                        // Try network/fetch fallback (works for many content URIs served by the picker)
+                        try {
+                            const res = await fetch(imageUri);
+                            const arrayBuffer = await res.arrayBuffer();
+                            const u8 = new Uint8Array(arrayBuffer);
+                            base64 = uint8ArrayToBase64(u8);
+                        } catch (fetchErr) {
+                            console.error('Fetch fallback failed for image:', imageUri, fetchErr);
+                            throw fetchErr;
+                        }
+                    }
+                } catch (innerErr) {
+                    console.error('Failed reading image:', imageUri, innerErr);
+                    throw innerErr;
+                }
 
                 // Determine image type and embed
                 let image;
@@ -132,8 +154,17 @@ export const ImageToPdfScreen = () => {
             setImages([]);
             Alert.alert('Success!', 'PDF created successfully');
         } catch (error) {
-            console.error(error);
-            Alert.alert('Error', 'Failed to create PDF. Please try again.');
+            console.error('Image->PDF error:', error);
+            try {
+                // Upload the full error to the log collector and get a reference id
+                const { id } = await reportError(error, { screen: 'ImageToPdf', imagesCount: images.length });
+                const shortMsg = "Something went wrong while creating the PDF. We've logged the error for review.";
+                const ref = id ? ` Ref: ${id}` : '';
+                Alert.alert('Error', shortMsg + ref);
+            } catch (reportErr) {
+                console.error('Error reporting failed', reportErr);
+                Alert.alert('Error', 'Something went wrong while creating the PDF. Please try again.');
+            }
         } finally {
             setIsConverting(false);
         }

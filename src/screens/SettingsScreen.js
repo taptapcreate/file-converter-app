@@ -17,6 +17,7 @@ import { ProModal } from '../components/ProBanner';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, GlassStyles } from '../constants/colors';
 import { PRO_FEATURES } from '../constants/limits';
+import { getStoredLogs, clearStoredLogs } from '../utils/LogCollector';
 
 export const SettingsScreen = () => {
     const { isDark, colors } = useTheme();
@@ -49,6 +50,49 @@ export const SettingsScreen = () => {
         Alert.alert('Dev Mode', `Pro status set to: ${!isPro}`);
     };
 
+    const handleTestPro = () => {
+        setPro(true);
+        Alert.alert('Test Pro', 'Pro mode enabled for testing');
+    };
+
+    const handleRevertPro = () => {
+        setPro(false);
+        Alert.alert('Revert Pro', 'Pro mode disabled');
+    };
+
+    const handleViewLogs = async () => {
+        try {
+            const logs = await getStoredLogs();
+            if (!logs || logs.length === 0) {
+                Alert.alert('Logs', 'No stored error logs');
+                return;
+            }
+
+            const first = logs[0];
+            Alert.alert(
+                `Stored Logs (${logs.length})`,
+                `${first.id}\n${first.timestamp}\n${first.error.message}`,
+                [
+                    { text: 'Close' },
+                    {
+                        text: 'Show All',
+                        onPress: () => Alert.alert('All Logs', JSON.stringify(logs, null, 2))
+                    },
+                    {
+                        text: 'Clear',
+                        style: 'destructive',
+                        onPress: async () => {
+                            await clearStoredLogs();
+                            Alert.alert('Logs', 'Cleared stored logs');
+                        }
+                    }
+                ]
+            );
+        } catch (e) {
+            Alert.alert('Error', 'Failed to read stored logs');
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <ScrollView contentContainerStyle={styles.content}>
@@ -77,6 +121,19 @@ export const SettingsScreen = () => {
                                 <View style={styles.proButton}>
                                     <Text style={styles.proButtonText}>Upgrade</Text>
                                 </View>
+                            )}
+
+                            {/* Dev-only quick Test Pro / Revert buttons */}
+                            {__DEV__ && !isPro && (
+                                <TouchableOpacity onPress={handleTestPro} style={styles.testProButton}>
+                                    <Text style={styles.testProText}>Test Pro</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {__DEV__ && isPro && (
+                                <TouchableOpacity onPress={handleRevertPro} style={styles.revertButton}>
+                                    <Text style={styles.revertText}>Revert</Text>
+                                </TouchableOpacity>
                             )}
                         </View>
                     </LinearGradient>
@@ -186,6 +243,16 @@ export const SettingsScreen = () => {
                                 </Text>
                             </View>
                         </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.card, { backgroundColor: glassStyle.backgroundColor, borderColor: glassStyle.borderColor, marginTop: 12 }]}
+                            onPress={handleViewLogs}
+                        >
+                            <View style={styles.menuItem}>
+                                <MaterialCommunityIcons name="bug" size={20} color={colors.text} style={{ marginRight: 12 }} />
+                                <Text style={[styles.menuText, { color: colors.text }]}>View Stored Error Logs</Text>
+                            </View>
+                        </TouchableOpacity>
                     </View>
                 )}
             </ScrollView>
@@ -239,6 +306,36 @@ const styles = StyleSheet.create({
         color: Colors.pro.end,
         fontWeight: '700',
         fontSize: 12,
+    },
+    testProButton: {
+        marginLeft: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignSelf: 'center',
+    },
+    testProText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    revertButton: {
+        marginLeft: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.22)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        alignSelf: 'center',
+    },
+    revertText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '700',
     },
     section: {
         marginBottom: 24,

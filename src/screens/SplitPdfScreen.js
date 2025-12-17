@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+// Using legacy FileSystem API to avoid deprecated readAsStringAsync warnings
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { PDFDocument } from 'pdf-lib';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
