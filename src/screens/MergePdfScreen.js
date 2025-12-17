@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+// Use legacy FileSystem API to keep readAsStringAsync behavior (avoid deprecation/runtime errors)
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { PDFDocument } from 'pdf-lib';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { reportError } from '../utils/LogCollector';
 import { usePro } from '../context/ProContext';
 import { Colors, GlassStyles } from '../constants/colors';
 import { FREE_LIMITS } from '../constants/limits';
@@ -46,13 +48,21 @@ export const MergePdfScreen = () => {
                 copyToCacheDirectory: true,
             });
 
-            if (!result.canceled && result.assets[0]) {
+            // Support both shapes: DocumentPicker returns { type: 'success', uri, name } or older shapes with assets
+            if (result && (result.type === 'success' || result.type === 'success')) {
+                const uri = result.uri || (result.assets && result.assets[0] && result.assets[0].uri);
+                const name = result.name || (result.assets && result.assets[0] && result.assets[0].name) || 'picked.pdf';
+                if (uri) {
+                    setPdfs(prev => [...prev, { uri, name }]);
+                }
+            } else if (result && result.assets && result.assets[0]) {
                 setPdfs(prev => [...prev, {
                     uri: result.assets[0].uri,
                     name: result.assets[0].name,
                 }]);
             }
         } catch (error) {
+            console.error('Pick PDF error:', error);
             Alert.alert('Error', 'Failed to pick PDF');
         }
     };
@@ -87,13 +97,25 @@ export const MergePdfScreen = () => {
             const mergedPdf = await PDFDocument.create();
 
             for (const pdf of pdfs) {
-                const pdfBytes = await FileSystem.readAsStringAsync(pdf.uri, {
-                    encoding: 'base64',
-                });
+                let pdfDoc;
+                try {
+                    // Try local file read for file:// URIs
+                    if (pdf.uri && pdf.uri.startsWith('file://')) {
+                        const pdfBase64 = await FileSystem.readAsStringAsync(pdf.uri, { encoding: 'base64' });
+                        pdfDoc = await PDFDocument.load(`data:application/pdf;base64,${pdfBase64}`);
+                    } else {
+                        // Fallback: fetch the URI and load ArrayBuffer
+                        const res = await fetch(pdf.uri);
+                        if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status}`);
+                        const arrayBuffer = await res.arrayBuffer();
+                        pdfDoc = await PDFDocument.load(arrayBuffer);
+                    }
+                } catch (readErr) {
+                    console.error('Failed reading PDF:', pdf.uri, readErr);
+                    throw readErr;
+                }
 
-                const pdfDoc = await PDFDocument.load(`data:application/pdf;base64,${pdfBytes}`);
                 const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-
                 pages.forEach(page => mergedPdf.addPage(page));
             }
 
@@ -117,8 +139,16 @@ export const MergePdfScreen = () => {
             setPdfs([]);
             Alert.alert('Success!', 'PDFs merged successfully');
         } catch (error) {
-            console.error(error);
-            Alert.alert('Error', 'Failed to merge PDFs. Please try again.');
+            console.error('Merge->PDF error:', error);
+            try {
+                const { id } = await reportError(error, { screen: 'MergePdf', pdfCount: pdfs.length });
+                const shortMsg = "Something went wrong while merging PDFs. We've logged the error for review.";
+                const ref = id ? ` Ref: ${id}` : '';
+                Alert.alert('Error', shortMsg + ref);
+            } catch (reportErr) {
+                console.error('Error reporting failed', reportErr);
+                Alert.alert('Error', 'Failed to merge PDFs. Please try again.');
+            }
         } finally {
             setIsMerging(false);
         }

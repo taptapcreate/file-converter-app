@@ -42,7 +42,8 @@ export const ImageToPdfScreen = () => {
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                // Use new API: ImagePicker.MediaType (or array of MediaType)
+                mediaTypes: ImagePicker.MediaType.Images,
                 allowsMultipleSelection: true,
                 quality: 0.8,
                 selectionLimit: maxImages - images.length,
