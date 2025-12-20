@@ -50,6 +50,27 @@ export const HomeScreen = ({ navigation }) => {
             screen: 'SplitPdf',
             limitKey: 'SPLIT_PDF_PAGES',
         },
+        {
+            title: 'Compress PDF',
+            description: 'Reduce PDF file size',
+            icon: 'file-clock',
+            screen: 'CompressPdf',
+            limitKey: 'COMPRESS_PDF',
+        },
+        {
+            title: 'Rotate PDF',
+            description: 'Rotate PDF pages',
+            icon: 'rotate-right',
+            screen: 'RotatePdf',
+            limitKey: 'ROTATE_PDF',
+        },
+        {
+            title: 'Delete Pages',
+            description: 'Remove pages from PDF',
+            icon: 'file-remove',
+            screen: 'DeletePages',
+            limitKey: 'DELETE_PAGES',
+        },
     ];
 
     return (

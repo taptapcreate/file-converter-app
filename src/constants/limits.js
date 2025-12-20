@@ -4,6 +4,9 @@ export const FREE_LIMITS = {
     PDF_TO_IMAGES: 3,      // Max pages to convert
     MERGE_PDFS: 2,         // Max PDFs to merge
     SPLIT_PDF_PAGES: 5,    // Max pages to split
+    COMPRESS_PDF: 3,       // Max compressions per day
+    ROTATE_PDF: 3,         // Max rotations per day
+    DELETE_PAGES: 5,       // Max pages to delete at once
 };
 
 // Pro features

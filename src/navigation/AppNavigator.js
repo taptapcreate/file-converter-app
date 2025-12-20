@@ -12,6 +12,9 @@ import { PdfToImageScreen } from '../screens/PdfToImageScreen';
 import { MergePdfScreen } from '../screens/MergePdfScreen';
 import { SplitPdfScreen } from '../screens/SplitPdfScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { CompressPdfScreen } from '../screens/CompressPdfScreen';
+import { RotatePdfScreen } from '../screens/RotatePdfScreen';
+import { DeletePagesScreen } from '../screens/DeletePagesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -86,6 +89,21 @@ const AppNavigator = () => {
                     name="SplitPdf"
                     component={SplitPdfScreen}
                     options={{ title: 'Split PDF' }}
+                />
+                <Stack.Screen
+                    name="CompressPdf"
+                    component={CompressPdfScreen}
+                    options={{ title: 'Compress PDF' }}
+                />
+                <Stack.Screen
+                    name="RotatePdf"
+                    component={RotatePdfScreen}
+                    options={{ title: 'Rotate PDF' }}
+                />
+                <Stack.Screen
+                    name="DeletePages"
+                    component={DeletePagesScreen}
+                    options={{ title: 'Delete Pages' }}
                 />
             </Stack.Navigator>
         </NavigationContainer>
